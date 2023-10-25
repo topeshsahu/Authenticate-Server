@@ -13,4 +13,4 @@ route.post("/login-by-site", loginBySite);
 // Register Routes
 route.post("/", registerUser);
 
-export default route;
+export default route; 
