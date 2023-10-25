@@ -9,8 +9,7 @@ dotenv.config();
 // Login By Google
 
 const getGoogleOauthToken = async ({ code }) => {
-  const rootURl = process.env.GOOGLE_ACCESS_TOKEN_URL;
-
+  const rootURl = "https://oauth2.googleapis.com/token";
   const options = {
     code,
     client_id: process.env.GOOGLE_CLIENT_ID,
@@ -24,25 +23,26 @@ const getGoogleOauthToken = async ({ code }) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
     });
-
     return data;
   } catch (err) {
     console.log("Failed to fetch Google Oauth Tokens");
-    throw new Error(err);
+    redirect("http://localhost:3002/login?status=failure");
   }
 };
 
 const getGoogleUser = async ({ id_token, access_token }) => {
   try {
     const { data } = await axios.get(
-      `${process.env.GOOGLE_USER_INFO_URL}&access_token=${access_token}`,
+      `https://www.googleapis.com/oauth2/v3/userinfo`,
       {
         headers: {
-          Authorization: `Bearer ${id_token}`,
+          Authorization: `Bearer ${access_token}`,
+        },
+        params: {
+          access_token: access_token,
         },
       }
     );
-
     return data;
   } catch (err) {
     console.log(err);
@@ -54,19 +54,21 @@ const loginByGoogle = async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) {
-      res.status(404).json({ message: "Didn't get the code from Google." });
+      console.log("Didn't get the code from Google.");
+      redirect("http://localhost:3002/googleAuth?status=failure");
     }
-    const { access_token, refresh_token, expires_in, id_token } =
+    const { access_token, refresh_token } =
       await getGoogleOauthToken({ code });
 
-    if (!access_token && !id_token) {
-      res.status(404).json({ message: "Didn't get the access token." });
+    if (!access_token) {
+      console.log("didn't get the access token.");
+      redirect("http://localhost:3002/googleAuth?status=failure");
     }
-    const { name, email, verified_email } = await getGoogleUser({
+    const { name, email, email_verified } = await getGoogleUser({
       id_token,
       access_token,
     });
-    if (verified_email && email) {
+    if (email_verified && email) {
       res.redirect(
         `http://localhost:3002/googleAuth?status=success&user=${name}&email=${email}&access_token=${access_token}&refresh_token=${refresh_token}`
       );
@@ -75,6 +77,7 @@ const loginByGoogle = async (req, res) => {
     }
   } catch (error) {
     console.log("Error >> ", error);
+    res.redirect(`http://localhost:3002/googleAuth?status=failure`);
   }
 };
 
